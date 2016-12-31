@@ -281,7 +281,7 @@ function ConsiderVoodoo()
         -- calculate if lion has just launched an impale
         -- wait until the impale can reach the nearest unit
         if (#tableNearbyEnemyHeroes < 1) then
-            return
+            return BOT_ACTION_DESIRE_NONE;
         end
 
         local npcTargetClosest = tableNearbyEnemyHeroes[1];

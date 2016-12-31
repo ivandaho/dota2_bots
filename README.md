@@ -29,7 +29,6 @@ There are files to prevent bots from getting stuck in the following modes: item,
 * Will use Impale offensively to some extent
 * Will use Mana Drain if certain conditions are met
 * Will cancel Mana Drain in favor of other spells if needed (such as if threatened)
-* **No Finger of Death logic implemented**
 
 **Storm**
 * mode_laning_storm.lua partially implemented
