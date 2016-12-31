@@ -1,4 +1,4 @@
-local DotaBotUtility = require(GetScriptDirectory().."/utility");
+local DotaBotUtility = require(GetScriptDirectory().."/extras/utility");
 LANE = LANE_MID;
 
 local STATE_IDLE = "STATE_IDLE";

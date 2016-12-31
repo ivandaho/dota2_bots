@@ -19,6 +19,13 @@ There are files to prevent bots from getting stuck in the following modes: item,
 **Lion**
 * ability_item_usage_lion.lua partially implemented
 * Will use Impale, Voodoo defensively
+* Will attempt to not stack disables, but chain Voodoo before Impale runs out in some cases
+* Will use Impale offensively to some extent
+* Will attempt to combo Impale with FOD if possible to finish off low HP heroes
+* Will use Mana Drain if certain conditions are met
+* Will cancel Mana Drain in favor of other spells if needed (such as if threatened)
+* Will cancel Mana Drain to retreat if HP drops below threshold
+* Will use Finger of Death to finish off low HP heroes
 * Will use Impale offensively to some extent
 * Will use Mana Drain if certain conditions are met
 * Will cancel Mana Drain in favor of other spells if needed (such as if threatened)
@@ -40,6 +47,7 @@ https://github.com/furiouspuppy/Dota2_Bots
 [Discord Channel](https://discord.gg/R8DmqUH)
 
 ## To other bot coders
+Feel free to open issues or contact me by email (this username @ gmail.com) or discord (same username)#3627.
 Feel free to open issues or contact me by email (this username @ gmail.com) or discord (same username).
 
 For now I will focus on developing Lion to be a support bot that you wouldn't mind having on your team. I'm working on fleshing out ability_item_usage_lion first. More advanced stuff I want to work on are stacking/pulling camps, TPing to react to a gank, harassing in lane, and more.

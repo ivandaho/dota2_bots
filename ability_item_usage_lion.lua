@@ -22,7 +22,7 @@ function CourierUsageThink()
 end
 
 function CheckDesires()
-    return castImpaleDesire, castVoodooDesire, castManaDrainDesire;
+    return castImpaleDesire, castVoodooDesire, castManaDrainDesire, castFingerDesire;
 end
 
 function AbilityUsageThink()
@@ -38,6 +38,17 @@ function AbilityUsageThink()
         -- an ability is being used (mana drain)
         -- might want to interrupt mana drain for something better
         -- print(ManaPriority(npcBot));
+
+        -- TODO: set flexible threshold determined by opponents threat
+        local defensive = false;
+        if (npcBot:GetHealth() / npcBot:GetMaxHealth() < 0.3) then
+            defensive = true;
+        end
+        if (defensive == true) then
+            print("health low while casting mana drain.");
+            npcBot:Action_ClearActions(true);
+            npcBot:Action_ClearActions(false);
+        end
         if (ManaPriority(npcBot) > 0.7) then
             -- if we need mana for other spells,
             -- continue channeling mana drain
@@ -64,6 +75,7 @@ function AbilityUsageThink()
     castImpaleDesire, castImpaleTarget = ConsiderImpale();
     castVoodooDesire, castVoodooTarget = ConsiderVoodoo();
     castManaDrainDesire, castManaDrainTarget = ConsiderManaDrain();
+    castFingerDesire, castFingerTarget = ConsiderFinger();
     -- print(CheckDesires());
 
     local highestDesire = castImpaleDesire;
@@ -123,6 +135,13 @@ function ConsiderImpale()
     local nCastRange = abilityImpale:GetCastRange();
     local nSpeed = abilityImpale:GetSpecialValueInt( "speed" );
 
+    local botCurrentMana = npcBot:GetMana();
+    local canCombo = false;
+    if (abilityImpale:GetManaCost() + abilityFinger:GetManaCost() <= botCurrentMana) and (abilityFinger:IsFullyCastable()) then
+        canCombo = true;
+        -- print("cancombo");
+    end
+
     --------------------------------------
     -- Mode based usage
     --------------------------------------
@@ -130,6 +149,30 @@ function ConsiderImpale()
 
     -- consider casting on enemy if on the offense
     if ( npcBot:GetActiveMode() == BOT_MODE_ATTACK ) then
+        local impaleActualDamage = abilityImpale:GetAbilityDamage() * 0.75;
+        local fingerActualDamage = abilityFinger:GetAbilityDamage() * 0.75;
+
+        -- some wiggle room for damage to prevent 10hp survivals
+        local room = 50;
+
+        local acquisitionRange = abilityImpale:GetCastRange() + 300
+        local tableNearbyEnemyHeroes = npcBot:GetNearbyHeroes( acquisitionRange, true, BOT_MODE_NONE );
+        for _,npcTarget in pairs(tableNearbyEnemyHeroes) do
+            -- if Lion can finish off an enemy with two spells
+            if (canCombo) then
+                if (npcTarget:GetHealth() < impaleActualDamage + fingerActualDamage - room) then
+                    -- print("can finish off with combo");
+                    -- setting this desire to absolute will make lion output some damage,
+                    -- which in turn will trigger finger logic to finish off opponent
+                    return BOT_ACTION_DESIRE_ABSOLUTE, tableNearbyEnemyHeroes[1];
+                end
+            end
+            if (npcTarget:GetHealth() < impaleActualDamage - room) then
+                print("can finish off with impale");
+                return BOT_ACTION_DESIRE_VERYHIGH, tableNearbyEnemyHeroes[1];
+            end
+        end
+
         local tableNearbyEnemyHeroes = npcBot:GetNearbyHeroes( 700, true, BOT_MODE_NONE );
         if(#tableNearbyEnemyHeroes > 0) then
             return BOT_ACTION_DESIRE_HIGH, tableNearbyEnemyHeroes[1];
@@ -306,6 +349,54 @@ function ManaPriority(npcBot)
     -- need for mana
     local manaCostImpale = abilityImpale:GetManaCost();
     local manaCostVoodoo = abilityImpale:GetManaCost();
+    local manaCostFinger = abilityFinger:GetManaCost();
+    local currentMana = npcBot:GetMana();
+
+    local totalManaCost = manaCostImpale + manaCostVoodoo + manaCostFinger;
+
+    local spellsLearned = 0;
+    if (abilityImpale:GetLevel() > 0) then
+        spellsLearned = spellsLearned + 1;
+    end
+    if (abilityVoodoo:GetLevel() > 0) then
+        spellsLearned = spellsLearned + 1;
+    end
+    if (abilityFinger:GetLevel() > 0) then
+        spellsLearned = spellsLearned + 1;
+    end
+
+    local castability = 0;
+    if (abilityImpale:GetLevel() > 0) then
+        if (abilityImpale:IsOwnersManaEnough()) then
+            castability = castability + 1;
+        end
+    end
+    if (abilityVoodoo:IsOwnersManaEnough()) then
+        castability = castability + 1;
+    end
+    if (abilityFinger: IsOwnersManaEnough()) then
+        castability = castability + 1;
+    end
+
+    local missingCastability =  spellsLearned - castability;
+
+    if (currentMana > totalManaCost) then
+        -- lion can cast all spells
+        return 0.2;
+    elseif (missingCastability == 0) then
+        -- lion can cast any of his spells
+        -- but maybe not enough to cast multipe spells
+        return 0.2;
+    elseif (missingCastability == 1) then
+        -- lion has 1 spell he has learned but cannot cast
+        return 0.6;
+    elseif (missingCastability == 2) then
+        -- lion has 2 spells he has learned but cannot cast
+        return 0.7;
+    elseif (missingCastability == 3) then
+        -- lion has no mana to cast any of his spells
+        return 0.8;
+    end
     local currentMana = npcBot:GetMana();
 
     local higherManaCost = manaCostVoodoo;
@@ -366,11 +457,19 @@ function ManaDrainTime(npcBot, npcTarget)
     return timeReq;
 end
 
+function CanCastManaDrainOnTarget(npcTarget)
+    return npcTarget:CanBeSeen() and not npcTarget:IsMagicImmune() and not npcTarget:IsInvulnerable();
+end
+
 function ConsiderManaDrain()
     local npcBot = GetBot();
     -- Make sure it's castable
     if (not abilityManaDrain:IsFullyCastable()) then
         -- print("ManaDrain: not fully castable");
+        return BOT_ACTION_DESIRE_NONE;
+    end
+    if (npcBot:GetHealth() / npcBot:GetMaxHealth() < 0.5) then
+        -- print("health low, don't cast mana drain");
         return BOT_ACTION_DESIRE_NONE;
     end
 
@@ -380,6 +479,9 @@ function ConsiderManaDrain()
     local tableNearbyEnemyHeroes = npcBot:GetNearbyHeroes( acquisitionRange, true, BOT_MODE_NONE );
 
     if (#tableNearbyEnemyHeroes > 0) then
+        if not (CanCastManaDrainOnTarget(tableNearbyEnemyHeroes[1])) then
+            return
+        end
         local drainTime = ManaDrainTime(npcBot, tableNearbyEnemyHeroes[1]);
         -- TODO: implement something along with ManaDrainAmount that causes lion to mana drain
         -- a critical amount of mana away from the opponent (such as to prevent a big ult usage)
@@ -390,6 +492,35 @@ function ConsiderManaDrain()
             --     return BOT_ACTION_DESIRE_MODERATE, tableNearbyEnemyHeroes[1];
             -- elseif (drainTime > 3) then
             --     return BOT_ACTION_DESIRE_HIGH, tableNearbyEnemyHeroes[1];
+        end
+    end
+
+    return BOT_ACTION_DESIRE_NONE;
+end
+
+function CanCastFingerOnTarget(npcTarget)
+    return npcTarget:CanBeSeen() and not npcTarget:IsMagicImmune() and not npcTarget:IsInvulnerable();
+end
+
+function ConsiderFinger()
+    local npcBot = GetBot();
+
+    if (not abilityFinger:IsFullyCastable()) then
+        -- print("Finger: not fully castable");
+        return BOT_ACTION_DESIRE_NONE;
+    end
+
+    -- print("considering finger");
+    local nCastRange = abilityFinger:GetCastRange();
+    local acquisitionRange = nCastRange + 300;
+    local tableNearbyEnemyHeroes = npcBot:GetNearbyHeroes( acquisitionRange, true, BOT_MODE_NONE );
+
+    -- TODO: better magic resist calculations
+    local actualDamage = abilityFinger:GetAbilityDamage() * 0.75;
+    local room = 50.0;
+    for _,npcTarget in pairs(tableNearbyEnemyHeroes) do
+        if (npcTarget:GetHealth() < actualDamage - room and CanCastFingerOnTarget(npcTarget)) then
+            return BOT_ACTION_DESIRE_VERYHIGH, npcTarget;
         end
     end
 
