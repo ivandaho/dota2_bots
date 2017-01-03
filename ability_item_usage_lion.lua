@@ -93,13 +93,11 @@ function AbilityUsageThink()
             desiredSkill = 3;
     end
 
-    --[[
     if ( castFingerDesire > highestDesire)
         then
             highestDesire = castFingerDesire;
             desiredSkill = 4;
     end
-    --]]
 
     -- print("highestDesire: " .. highestDesire .. "|desiredSkill: " .. desiredSkill .. "|castImpaleDesire: " .. castImpaleDesire .. "|castVoodooDesire: " .. castVoodooDesire);
 
@@ -510,7 +508,7 @@ function ConsiderFinger()
         return BOT_ACTION_DESIRE_NONE;
     end
 
-    -- print("considering finger");
+    print("considering finger");
     local nCastRange = abilityFinger:GetCastRange();
     local acquisitionRange = nCastRange + 300;
     local tableNearbyEnemyHeroes = npcBot:GetNearbyHeroes( acquisitionRange, true, BOT_MODE_NONE );
